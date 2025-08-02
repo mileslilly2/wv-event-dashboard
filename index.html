@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Regional Event Map & List</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <style>
+    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif;}
+    #list { width: 35%; overflow: auto; border-right: 1px solid #ccc; }
+    #map  { flex: 1; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 4px; border-bottom: 1px solid #ddd; }
+    th { cursor: pointer; background: #f8f8f8; }
+    tr:hover { background: #eef; }
+    .no-events { text-align: center; padding: 2em; color: #888;}
+  </style>
+</head>
+<body>
+  <div id="list">
+    <table id="eventsTable">
+      <thead>
+        <tr>
+          <th data-key="title">Title ▲</th>
+          <th data-key="start">Start</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    let events = [];
+    fetch('events.json')
+      .then(res => res.json())
+      .then(data => {
+        events = data;
+        if (events.length === 0) {
+          document.querySelector('#eventsTable tbody').innerHTML = '<tr><td colspan="2" class="no-events">No events</td></tr>';
+          return;
+        }
+        initMap();
+        populateTable();
+      });
+
+    // Leaflet map
+    let map, markers = [];
+    function initMap() {
+      map = L.map('map').setView([39.63, -79.95], 9);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      markers = [];
+      events.forEach(ev => {
+        if (ev.lat && ev.lon) {
+          const m = L.marker([ev.lat, ev.lon])
+            .addTo(map)
+            .bindPopup(`<strong>${ev.title}</strong><br>${ev.start ? new Date(ev.start).toLocaleString() : "TBA"}`);
+          markers.push(m);
+        }
+      });
+    }
+
+    // Sortable table
+    let sortKey = 'title', ascending = true;
+    document.querySelectorAll('th[data-key]').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.getAttribute('data-key');
+        if (sortKey === key) ascending = !ascending;
+        else { sortKey = key; ascending = true; }
+        document.querySelectorAll('th').forEach(h=>h.textContent = h.textContent.replace(/ ▲| ▼/, ''));
+        th.textContent += ascending ? ' ▲' : ' ▼';
+        populateTable();
+      });
+    });
+
+    function populateTable() {
+      const tbody = document.querySelector('#eventsTable tbody');
+      tbody.innerHTML = '';
+      const sorted = events.slice().sort((a, b) => {
+        let va = a[sortKey], vb = b[sortKey];
+        if (sortKey === 'start') {
+          va = new Date(va); vb = new Date(vb);
+        }
+        return (va > vb ? 1 : va < vb ? -1 : 0) * (ascending ? 1 : -1);
+      });
+      sorted.forEach(ev => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${ev.title}</td>
+          <td>${ev.start ? new Date(ev.start).toLocaleString() : "TBA"}</td>
+        `;
+        tr.addEventListener('click', () => {
+          if (ev.lat && ev.lon) {
+            map.setView([ev.lat, ev.lon], 13);
+            const m = markers.find(mk => mk.getLatLng().lat === ev.lat && mk.getLatLng().lng === ev.lon);
+            if (m) m.openPopup();
+          }
+        });
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
