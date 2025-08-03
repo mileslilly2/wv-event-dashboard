@@ -31,7 +31,7 @@
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script>
     let events = [];
-    fetch('events.json')
+    fetch('non_zoom_events_with_coords(8).json')
       .then(res => res.json())
       .then(data => {
         events = data;
@@ -103,3 +103,4 @@
   </script>
 </body>
 </html>
+
